@@ -1,0 +1,23 @@
+name: novel-extractor
+services:
+  extractor:
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-public.ecr.aws/docker/library/python:3.13-slim}
+    ports:
+      - "127.0.0.1:${HOST_PORT:-${PORT:-49152}}:${PORT:-49152}"
+    environment:
+      PORT: "${PORT:-49152}"
+      MODEL_BASE_URL: ${MODEL_BASE_URL:-https://api.openai.com/v1}
+      MODEL_NAME: ${MODEL_NAME:-}
+      MODEL_API_KEY: ${MODEL_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    read_only: true
+    volumes:
+      - model-settings:/app/data
+    restart: unless-stopped
+
+volumes:
+  model-settings:

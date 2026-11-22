@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!engine.py
+!settings.py
+!server.py
+!index.html
+!workflow.py
+!workflow.js
