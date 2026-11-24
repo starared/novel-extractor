@@ -37,13 +37,15 @@ class SettingsTests(unittest.TestCase):
                 return json.load(res)
 
         initial = call()
-        self.assertEqual(initial, dict(base_url='https://initial.example/v1', model='initial', has_key=True))
+        self.assertEqual(initial, dict(base_url='https://initial.example/v1', model='initial', has_key=True, stream=False))
         fields = dict(base_url='http://host.docker.internal:11434/v1/', model='local-model')
         self.assertFalse(call(fields)['has_key'])
         changed = call({**fields, 'api_key': 'test-secret'})
         self.assertEqual(changed, call())
-        self.assertEqual(changed, dict(base_url=fields['base_url'].rstrip('/'), model='local-model', has_key=True))
+        self.assertEqual(changed, dict(base_url=fields['base_url'].rstrip('/'), model='local-model', has_key=True, stream=False))
+        self.assertTrue(call({**fields, 'stream': True})['stream'])
         call({**fields, 'model': 'different', 'api_key': ''})
+        self.assertTrue(call()['stream'])
         self.assertEqual(settings.load()['api_key'], 'test-secret')
         for invalid in ({'base_url': 'file:///something'}, {'model': ' '}, {'base_url': 'https://key@site.test/v1'}, {'base_url': 'https://site.test/v1?key=test'}):
             with self.assertRaises(HTTPError) as err:

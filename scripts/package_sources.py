@@ -6,7 +6,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ('Dockerfile', '.dockerignore', '.gitignore', '.env.example', 'README.md',
          'engine.py', 'settings.py', 'server.py', 'index.html', 'test_extractor.py',
-         'test_settings.py', 'workflow.py', 'workflow.js')
+         'test_settings.py', 'test_review.py', 'test_frontend.js', 'workflow.py', 'workflow.js')
 
 
 def main():

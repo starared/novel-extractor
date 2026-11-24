@@ -17,6 +17,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test_frontend.js
       - run: python -m unittest discover -v && python scripts/package_sources.py
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3

@@ -56,6 +56,36 @@ class ExtractorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             workflow.validate_rows(rows)
 
+    def test_style_only_retries_selected_facts(self):
+        calls = []
+        def model(prompt, payload):
+            calls.append(payload['仅提取类别'])
+            common = dict(content='设定', quote='沈舟登上渡船', keys=['沈舟'])
+            if len(calls) == 1:
+                return {'entries': [dict(common, kind='文风', name='叙述视角', scope='全局')]}
+            return {'entries': [dict(common, kind='事件', name='登船', placement=dict(position=4, depth=2, role=0, order=150))]}
+        rows, count, rejected = engine.extract([PASSAGE], '雾港', ['文风','事件'], '', lambda _: None, model)
+        self.assertEqual(calls, [['文风','事件'], ['事件']])
+        self.assertEqual((count, rejected), (1, 0))
+        style, event = rows
+        self.assertTrue(style['constant'])
+        self.assertFalse(event['constant'])
+        self.assertEqual([event[k] for k in ('position','depth','role','order')], [4,2,0,150])
+
+    def test_all_insertion_positions_round_trip(self):
+        rows, _, _ = engine.extract([PASSAGE], '雾港', ['角色'], '', lambda _: None, fake)
+        entries = [dict(rows[0], position=pos, outlet='dock' if pos == 7 else '') for pos in range(8)]
+        workflow.validate_rows(entries)
+        card, world = engine.artifacts(dict(entries=entries, title='港', opening='谁在岸上？', description='摆渡人'))
+        for i, embedded in enumerate(card['data']['character_book']['entries']):
+            self.assertEqual(embedded['extensions']['position'], i)
+            self.assertEqual(world['entries'][str(i)]['position'], i)
+        self.assertEqual(embedded['extensions']['outlet_name'], 'dock')
+        self.assertEqual(world['entries']['7']['outletName'], 'dock')
+        entries[-1]['outlet'] = ''
+        with self.assertRaises(ValueError):
+            workflow.validate_rows(entries)
+
     def test_http_round_trip(self):
         http = server.ThreadingHTTPServer(('127.0.0.1', 0), server.Handler)
         threading.Thread(target=http.serve_forever, daemon=True).start()
@@ -75,8 +105,17 @@ class ExtractorTests(unittest.TestCase):
         def upload(flow,raw):
             with urlopen(Request(url+flow+'/upload',raw,{'Content-Type':'application/octet-stream','X-Filename':'book.txt'})) as r:
                 return json.load(r)
-        large=create()
+        skipped_token = 'a' * 32
+        skipped = json.loads(post('/flows/'+skipped_token+'/action', {'step':'source','mode':'skip'}))
+        self.addCleanup(workflow.discard, skipped_token)
+        self.assertEqual(skipped['step'], 'extract')
+        large='/flows/'+'b'*32
         self.assertEqual(upload(large,b'x'*(13*1024*1024))['step'],'extract')
+        self.addCleanup(workflow.discard, 'b'*32)
+        with self.assertRaises(HTTPError) as repeated:
+            upload(large,b'new')
+        self.assertEqual(repeated.exception.code,409)
+        repeated.exception.close()
         self.assertEqual(json.loads(post(large+'/action',{'step':'extract','mode':'skip'}))['step'],'world')
         def act(step,mode,**kwargs):
             return json.loads(post(flow+'/action',dict(step=step,mode=mode,**kwargs)))

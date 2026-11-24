@@ -25,7 +25,7 @@ def load():
 
 
 def public(cfg):
-    return dict(base_url=cfg['base_url'], model=cfg['model'], has_key=bool(cfg['api_key']))
+    return dict(base_url=cfg['base_url'], model=cfg['model'], stream=cfg.get('stream', False), has_key=bool(cfg['api_key']))
 
 
 def resolve(fields, *, require_model=True):
@@ -50,7 +50,10 @@ def resolve(fields, *, require_model=True):
     if key and (clear or not key.isascii() or not key.isprintable() or len(key) > 4096):
         raise ValueError('密钥无效，或同时选择了清除密钥。')
     old = load()
-    return dict(base_url=url, model=model, api_key=key or (old['api_key'] if url == old['base_url'] and not clear else ''))
+    stream = fields.get('stream', old.get('stream', False))
+    if type(stream) is not bool:
+        raise ValueError('流式设置必须为开或关。')
+    return dict(base_url=url, model=model, stream=stream, api_key=key or (old['api_key'] if url == old['base_url'] and not clear else ''))
 
 
 def save(fields):

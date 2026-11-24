@@ -1,3 +1,5 @@
+import logging
+import re
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -12,6 +14,12 @@ ROOT = Path(__file__).resolve().parent
 
 
 class Handler(BaseHTTPRequestHandler):
+    def log_request(self, code='-', size='-'):
+        if self.command == 'GET' and int(code) == 200 and (self.path == '/health' or self.path.startswith('/flows/')):
+            return
+        path = re.sub(r'/flows/[^/?]+', '/flows/<task>', self.path.split('?')[0])
+        logging.getLogger('http').info('%s %s %s', self.command, path, code)
+
     def reply(self, data, code=200, mime='application/json; charset=utf-8'):
         body = data if isinstance(data, bytes) else json.dumps(data, ensure_ascii=False).encode()
         self.send_response(code)
@@ -35,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(workflow.view(self.path[7:]))
             raise KeyError()
         except KeyError:
-            self.reply({'error':'工作流或页面不存在。'},404)
+            self.reply({'error':'本次制作记录或页面不存在。'},404)
         except ValueError as exc:
             self.reply({'error':str(exc)},500)
 
@@ -49,6 +57,9 @@ class Handler(BaseHTTPRequestHandler):
             if len(path)==3 and path[0]=='flows' and path[2]=='upload':
                 if self.headers.get_content_type() != 'application/octet-stream':
                     raise ValueError('需要 TXT 原始文件流。')
+                declared = self.headers.get('X-File-Size')
+                if declared is not None and int(declared) != size:
+                    raise ValueError(f'上传大小不符：浏览器选中的文件为 {int(declared):,} 字节，请求正文为 {size:,} 字节。请重新选择文件。')
                 workflow.upload(path[1], self.rfile, size, unquote(self.headers.get('X-Filename','')))
                 return self.reply(workflow.view(path[1]))
             if self.headers.get_content_type() != 'application/json':
@@ -68,6 +79,17 @@ class Handler(BaseHTTPRequestHandler):
             if len(path)!=3 or path[0]!='flows':
                 raise KeyError()
             _, token, op = path
+            if op == 'exchange':
+                return self.reply(workflow.exchange(token, data.get('index')))
+            if op == 'part':
+                return self.reply({'text':workflow.inspect_part(token,data.get('part'))})
+            if op == 'context':
+                with workflow.guard:
+                    f = workflow.check(token,'opening')
+                    return self.reply(engine.opening_context(f['entries'],engine.short(data.get('instructions'),3000),engine.short(data.get('role_requirements'),3000)))
+            if op == 'release':
+                workflow.release(token)
+                return self.reply({'ok':True})
             if op == 'discard':
                 workflow.discard(token)
                 return self.reply({'ok':True})
@@ -75,14 +97,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(workflow.action(token,data))
             if op in ('png','world'):
                 with workflow.guard:
-                    f = workflow.check(token,'export')
+                    f = workflow.check(token)
+                    if f['step'] not in ('opening', 'export', 'done'):
+                        raise workflow.Conflict('请先完成角色卡编辑。')
+                    for key, limit in [('opening',12000), ('description',3000)]:
+                        if key in data:
+                            if not isinstance(data[key], str) or len(data[key]) > limit:
+                                raise ValueError('文本长度或格式无效。')
+                    for key in ('opening','description'):
+                        if key in data:
+                            f[key] = data[key]
                     project = {k:f[k] for k in ('opening','description','entries','title')}
                 project['title'] = engine.short(data.get('title'),100) or project['title']
                 card, world = engine.artifacts(project)
                 return self.reply(engine.encode_png(card),mime='image/png') if op=='png' else self.reply(world)
             raise KeyError()
         except KeyError:
-            self.reply({'error':'节点或工作流不存在。'},404)
+            self.reply({'error':'步骤或制作记录不存在。'},404)
         except workflow.Conflict as exc:
             self.reply({'error':str(exc)},409)
         except ValueError as exc:
@@ -92,4 +123,5 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(name)s %(message)s')
     ThreadingHTTPServer((os.getenv('BIND_HOST','127.0.0.1'),int(os.getenv('PORT','49152'))),Handler).serve_forever()
