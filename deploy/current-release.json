@@ -1,0 +1,29 @@
+{
+  "version": "local-20261124T025138Z-e60d102ff2",
+  "image": "novel-extractor:local-20261124T025138Z-e60d102ff2",
+  "image_id": "sha256:506a2cf226dce1a219e532555ee23118de0d9b1b21c7b5e4f583f0374095a9b6",
+  "rollback_image": "novel-extractor:rollback-20261124T025138Z",
+  "backup": "/opt/backups/novel-extractor-20261124T025138Z",
+  "source_sha256": {
+    "engine.py": "f075dca6db17ae03a1786e362961073735b440bf3b508cfc3ce6c4efa05580ca",
+    "server.py": "940d489c9da51b566f8b64438e242218e4492887802938774f3f3a155b32b6eb",
+    "workflow.py": "c3d97ee8253bc4d2cb64ce57b9cd8d59c1f076ae9388ad8643d6497bd2198699",
+    "settings.py": "f045b1761155985ac1ce3ec54ed89afa0216c75a2bf8dd78afc020337b97ecad",
+    "index.html": "a5572586f3c929ba925b0fc47f575c55c5fe5d05cea6f97cf738d7c99bcfadf3",
+    "workflow.js": "3963ebcceb20efbc858242a0ade88fb5ab08fe0d9a9a243a936f8e1cfe37f0f8",
+    "Dockerfile": "252eb2f125e4ab759a1920273271e03b5b698320921860a72d13123c175e6e92"
+  },
+  "previous_data_volume": "novel-extractor_model-settings",
+  "verified_at": "2026-11-24T02:53:18.325681+00:00",
+  "verification": [
+    "compose config valid",
+    "nginx config valid",
+    "container healthy",
+    "TLS certificate verified on local Nginx",
+    "unauthenticated root, JS and health return 401",
+    "authenticated root and JS match container bytes",
+    "authenticated health returns ok",
+    "data files verified after migration",
+    "Backrest configured scope covers new data directory"
+  ]
+}

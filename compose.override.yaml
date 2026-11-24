@@ -1,0 +1,14 @@
+# Server-specific deployment; see DEPLOYMENT.md.
+services:
+  extractor:
+    image: ${DEPLOY_IMAGE:?Set DEPLOY_IMAGE in .env to a versioned local image}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - default
+      - new-api
+
+networks:
+  new-api:
+    external: true
+    name: new-api_default
